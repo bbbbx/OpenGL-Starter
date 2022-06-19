@@ -2,7 +2,7 @@
 #include "LoadShaders.h"
 
 BEGIN_APP_DECLARATION(Triangle)
-  virtual void Initialize(const char* title);
+  virtual void Initialize(int argc, char** argv, const char* title);
   virtual void Display(bool auto_redraw);
   virtual void Resize(int width, int height);
   virtual void Finalize(void);
@@ -12,9 +12,9 @@ DEFINE_APP(Triangle, "Triangle")
 
 GLuint VAO;
 
-void Triangle::Initialize( const char* title )
+void Triangle::Initialize(int argc, char** argv, const char* title)
 {
-  base::Initialize( title );
+  base::Initialize( argc, argv, title );
 
   glGenVertexArrays( 1, &VAO );
 

@@ -20,14 +20,32 @@ void VApplication::char_callback(GLFWwindow* window, unsigned int codepoint)
   pThis->OnChar( codepoint );
 }
 
-float VApplication::app_time()
+void VApplication::scrollr_callback(GLFWwindow* window, double xoffset, double yoffset)
+{
+  VApplication* pThis = (VApplication*)glfwGetWindowUserPointer( window );
+  pThis->OnScroll( xoffset, yoffset );
+}
+
+void VApplication::cursorpos_callback(GLFWwindow* window, double xpos, double ypos)
+{
+  VApplication* pThis = (VApplication*)glfwGetWindowUserPointer( window );
+  pThis->OnCursorPos( xpos, ypos );
+}
+
+void VApplication::mousebutton_callback(GLFWwindow* window, int button, int action, int mods)
+{
+  VApplication* pThis = (VApplication*)glfwGetWindowUserPointer( window );
+  pThis->OnMouseButton( button, action, mods );
+}
+
+double VApplication::app_time()
 {
   auto now = std::chrono::system_clock::now();
   auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(now - appStartTime);
   return (double)duration.count() / 1000.0;
 }
 
-void VApplication::Initialize( const char* title )
+void VApplication::Initialize( int argc, char** argv, const char* title )
 {
   appStartTime = std::chrono::system_clock::now();
 
@@ -43,7 +61,7 @@ void VApplication::Initialize( const char* title )
   glfwWindowHint(GLFW_COCOA_RETINA_FRAMEBUFFER, GLFW_TRUE);
 #endif
 
-  pWindow = glfwCreateWindow( 1280, 720, title ? title : "title", nullptr, nullptr );
+  pWindow = glfwCreateWindow( window_width, window_height, title ? title : "title", nullptr, nullptr );
   if ( !pWindow ){
     throw std::runtime_error( "GLFW create window failed!\n" );
   }
@@ -52,12 +70,15 @@ void VApplication::Initialize( const char* title )
   glfwSetWindowSizeCallback( pWindow, window_resize_callback );
   glfwSetKeyCallback( pWindow, key_callback );
   glfwSetCharCallback( pWindow, char_callback );
+  glfwSetScrollCallback( pWindow, scrollr_callback );
+  glfwSetCursorPosCallback( pWindow, cursorpos_callback );
+  glfwSetMouseButtonCallback( pWindow, mousebutton_callback );
 
   glfwMakeContextCurrent( pWindow );
 
   gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
 
-  int width, height;
-  glfwGetFramebufferSize( pWindow, &width, &height );
-  Resize( width, height );
+  int fb_width, fb_height;
+  glfwGetFramebufferSize( pWindow, &fb_width, &fb_height );
+  Resize( fb_width, fb_height );
 }
