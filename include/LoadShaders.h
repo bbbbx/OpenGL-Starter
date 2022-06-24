@@ -1,11 +1,9 @@
 #ifndef __LOAD_SHADERS_H__
 #define __LOAD_SHADERS_H__
 
+#include <optional>
+#include <string>
 #include "glad/glad.h"
-
-#ifdef __cplusplus
-extern "C" {
-#endif // __cplusplus
 
 typedef struct
 {
@@ -17,8 +15,11 @@ typedef struct
 
 GLuint LoadShaders( ShaderInfo*);
 
-#ifdef __cplusplus
-}
-#endif // __cplusplus
+GLuint CreateGLShader(GLenum type, const std::string& str, const std::string& filename = nullptr);
+GLuint CreateGLProgram(GLuint* shaders, size_t size);
+
+std::string loadFileToString(const std::string& filepath);
+GLuint readShaderFromString(GLenum type, const std::string& source, const std::optional<std::string> includeDirPath);
+ShaderInfo* readShaderFile(GLenum type, const std::string& filename);
 
 #endif

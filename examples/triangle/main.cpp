@@ -1,5 +1,7 @@
 #include "vapp.h"
-#include "LoadShaders.h"
+#include "Program.h"
+
+#include <memory>
 
 BEGIN_APP_DECLARATION(Triangle)
   virtual void Initialize(int argc, char** argv, const char* title);
@@ -11,6 +13,7 @@ END_APP_DECLARATION()
 DEFINE_APP(Triangle, "Triangle")
 
 GLuint VAO;
+std::unique_ptr<Program> program;
 
 void Triangle::Initialize(int argc, char** argv, const char* title)
 {
@@ -18,19 +21,18 @@ void Triangle::Initialize(int argc, char** argv, const char* title)
 
   glGenVertexArrays( 1, &VAO );
 
-  ShaderInfo shaders[] = {
-    { GL_VERTEX_SHADER,   "shaders/triangle/triangle.vert" },
-    { GL_FRAGMENT_SHADER, "shaders/triangle/triangle.frag" },
-    { GL_NONE, nullptr }
-  };
-  GLuint program = LoadShaders( shaders );
-  glUseProgram( program );
+  program = std::make_unique<Program>( "shaders/triangle/triangle.vert", "shaders/triangle/triangle.frag" );
 }
 
 void Triangle::Display(bool auto_redraw)
 {
-  glClearColor(0.0, 0.0, 0.0, 1.0);
+  glClearColor( 0.0, 0.0, 0.0, 1.0 );
   glClear( GL_COLOR_BUFFER_BIT );
+
+  program
+    ->Use()
+    ->BindVec4( "u_color", 0.0, 0.5, 0.0, 1.0 )
+    ;
 
   glBindVertexArray( VAO );
   glDrawArrays( GL_TRIANGLES, 0, 3 );
@@ -45,6 +47,6 @@ void Triangle::Resize(int width, int height)
 
 void Triangle::Finalize(void)
 {
-  glfwDestroyWindow(pWindow);
+  glfwDestroyWindow( pWindow );
   glfwTerminate();
 }
