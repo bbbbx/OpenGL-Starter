@@ -2,117 +2,12 @@
 
 precision highp float;
 precision highp int;
-precision highp uint;
 
-// --- Remap.glsl ---
-float remap(float originalValue, float originalMin, float originalMax, float newMin, float newMax) {
-  // return mix(originalValue, originalMin, originalMax) * (newMax - newMin) + newMin;
-  return newMin + (((originalValue - originalMin) / (originalMax - originalMin)) * (newMax - newMin));
-}
-
-vec2 remap(vec2 originalValue, vec2 originalMin, vec2 originalMax, vec2 newMin, vec2 newMax) {
-  // return mix(originalValue, originalMin, originalMax) * (newMax - newMin) + newMin;
-  return newMin + (((originalValue - originalMin) / (originalMax - originalMin)) * (newMax - newMin));
-}
-
-float remapNormalized(float originalValue, float originalMin, float originalMax) {
-  return (originalValue - originalMin) / (originalMax - originalMin);
-}
-
-vec2 remapNormalized(vec2 originalValue, vec2 originalMin, vec2 originalMax) {
-  return (originalValue - originalMin) / (originalMax - originalMin);
-}
-
-vec3 remapNormalized(vec3 originalValue, vec3 originalMin, vec3 originalMax) {
-  return (originalValue - originalMin) / (originalMax - originalMin);
-}
-// --- Remap.glsl ---
-
-// --- HenyeyGreenstein.glsl ---
-// FIXME: 1/(4pi) 是 0.7853981633974483
-float oneOnFourPi = 0.0795774715459;
-
-vec4 henyeyGreenstein(float cosAngle, vec4 eccentricity) {
-  vec4 eccentricity2 = eccentricity * eccentricity;
-  return oneOnFourPi * ((vec4(1.0) - eccentricity2) / pow(vec4(1.0) + eccentricity2 - 2.0*eccentricity*cosAngle, vec4(3.0/2.0)));
-}
-
-float henyeyGreenstein(float cosAngle, float occentricity) {
-  return henyeyGreenstein(cosAngle, vec4(occentricity)).x;
-}
-
-float watooHenyeyGreenstein(float cosAngle) {
-  // Tuned to match The "Watoo" phase function for clouds, from Bouthors et al.
-	// See http://wiki.nuaj.net/index.php?title=Clouds
-  return dot(
-    henyeyGreenstein(cosAngle, vec4(-0.5, 0.3, 0.96, 0.0)),
-    vec4(0.5, 0.5, 0.03, 0.0)
-  );
-}
-// --- HenyeyGreenstein.glsl ---
-
-// r0: ray origin
-// rd: normalized ray direction
-// s0: sphere center
-// sr: sphere radius
-// Returns distances to intersections t0 and t1. Sets t0 to -1 if there was no intersection.
-void raySphereIntersections(vec3 r0, vec3 rd, vec3 s0, float sr, out float t0, out float t1)
-{
-  vec3 s0_r0 = r0 - s0;
-  float b = 2.0 * dot(rd, s0_r0);
-  float c = dot(s0_r0, s0_r0) - (sr * sr);
-
-	float det = b*b - 4.0*c;
-  if (det < 0.0)
-	{
-    t0 = -1.0;
-    t1 = -1.0;
-    return;
-  }
-	float sqrtDet = sqrt(det);
-  t0 = (-b - sqrtDet) * 0.5;
-	t1 = (-b + sqrtDet) * 0.5;
-}
-
-
-// r0: ray origin
-// rd: normalized ray direction
-// s0: sphere center
-// sr: sphere radius
-// Returns distance from r0 to first intersection with sphere, or -1.0 if no intersection.
-float raySphereFirstIntersection(vec3 r0, vec3 rd, vec3 s0, float sr)
-{
-  vec3 s0_r0 = r0 - s0;
-  float b = 2.0 * dot(rd, s0_r0);
-  float c = dot(s0_r0, s0_r0) - (sr * sr);
-	
-	float det = b*b - 4.0*c;
-  if (det < 0.0)
-	{
-    return -1.0;
-  }
-  return (-b - sqrt(det)) * 0.5;
-}
-
-// r0: ray origin
-// rd: normalized ray direction
-// s0: sphere center
-// sr: sphere radius
-// Returns distance from r0 to second intersection with sphere, or -1.0 if no intersection.
-float raySphereSecondIntersection(vec3 r0, vec3 rd, vec3 s0, float sr)
-{
-  vec3 s0_r0 = r0 - s0;
-  float b = 2.0 * dot(rd, s0_r0);
-  float c = dot(s0_r0, s0_r0) - (sr * sr);
-
-	float det = b*b - 4.0*c;
-  if (det < 0.0)
-	{
-    return -1.0;
-  }
-  return (-b + sqrt(det)) * 0.5;
-}
-
+#include "../AtmosphericScatteringWithClouds.h"
+#include "../Clouds.h"
+#include "../GlobalDefines.h"
+#include "../RaySphereIntersection.h"
+#include "../Brdfs/HenyeyGreenstein.h"
 
 
 // Remaps value from 0 to 1 across pixelCount pixels.
@@ -129,26 +24,6 @@ float random(vec2 texCoord)
 }
 
 
-vec2 offsetCloudUvByWorldDistance(vec2 startUv, vec2 worldDistance)
-{
-	return startUv + vec2(worldDistance.y / 40070000.0, 0.5 * worldDistance.x / 40070000.0);
-}
-
-uniform vec2 cloudDisplacementMeters;
-
-#define M_PI 3.1415926535897932384626433832795f
-#define M_2PI 6.28318530718f
-#define M_RCP_PI 0.31830988618f
-#define M_RCP_2PI 0.15915494309f
-vec2 cloudUvFromPosRelPlanet(vec3 positionRelPlanetPlanetAxes)
-{
-	vec2 pos2d = normalize(positionRelPlanetPlanetAxes.yx);
-	float psi = atan(pos2d.x, pos2d.y);
-	float theta = asin(normalize(positionRelPlanetPlanetAxes).z);
-	vec2 uv = vec2(psi * M_RCP_2PI + 0.5, theta * M_RCP_PI + 0.5);
-	return offsetCloudUvByWorldDistance(uv, cloudDisplacementMeters);
-}
-
 // From https://www.geeks3d.com/hacklab/20190225/demo-checkerboard-in-glsl/
 float checker(vec2 uv, float repeats) 
 {
@@ -159,21 +34,12 @@ float checker(vec2 uv, float repeats)
 }
 
 
-uniform vec3 wrappedNoiseOrigin;
-uniform float wrappedNoisePeriod;
-
-vec3 calcWrappedNoiseCoord(vec3 position)
-{
-	return (position - wrappedNoiseOrigin) / wrappedNoisePeriod;
-}
-
-
 
 uniform vec3 cameraPosition;
 
-uniform vec3 planetCenter;
-uniform mat4 planetMatrixInv;
-uniform float innerRadius;
+// uniform vec3 planetCenter;
+// uniform mat4 planetMatrixInv;
+// uniform float innerRadius;
 
 uniform vec3 lightDirection;
 uniform vec3 ambientLightColor;
@@ -243,27 +109,6 @@ const float scatterSampleDistanceScale = 25;
 const float scatterDistanceMultiplier = 0.5; // less then 1 to fake multi-scattering
 
 
-uniform float cloudCoverageFraction;
-
-float sampleBaseCloudCoverage(sampler2D cloudSampler, vec2 uv) {
-#ifdef USE_CLOUD_COVERAGE_MAP
-  float c = clamp(
-    textureLod(cloudSampler, uv, 0).r * 1.3 - 0.001,
-    0.0,
-    1.0);
-  return pow(c, 0.45); // apply fudge factor so that high detail cloud coverage matches map
-#else
-  return cloudCoverageFraction;
-#endif
-}
-
-float sampleCoverageDetail(sampler2D coverageDetailSampler, vec2 uv, float lod, out float cloudType) {
-  vec4 c = textureLod(coverageDetailSampler, uv.xy * vec2(300.0, 150.0), lod);
-  float coverageDetail = c.r;
-  cloudType = c.b*c.b; // 蓝色通道保存云的类型的平方根
-  return coverageDetail;
-}
-
 // Returns an apprxomate semicircle over x in range [0, 1]
 float semicircle(float x) {
   float a = clamp(x * 2.0 - 1.0, -1.0, 1.0);
@@ -288,43 +133,26 @@ float calcHeightMultiplier(float height, float cloudType) {
   return biasedSemiCircle(h, 0.2);
 }
 
-float coverageModulation(float coverage, float detail, float filterWidth) {
-  float f = 1.0 - coverage;
-  return clamp(remapNormalized(detail*(1.0 - filterWidth) + filterWidth, f, f + filterWidth), 0.0, 1.0);
-}
 
-vec2 coverageModulation(vec2 coverage, vec2 detail, vec2 filterWidth) {
-  vec2 f = vec2(1.0) - coverage;
-  return clamp(remapNormalized(detail*(vec2(1.0) - filterWidth) + filterWidth, f, f + filterWidth), vec2(0.0), vec2(1.0));
-}
+float sampleDensityHull(vec2 uv, float height, out float cloudType, float lod) {
+  // 采样全球的覆盖率作为云的低频覆盖率
+  float coverageBase = sampleBaseCloudCoverage(globalAlphaSampler, uv);
+  // 获取高频的覆盖率和云的类型
+  float coverageDetail = sampleCoverageDetail(coverageDetailSampler, uv, lod, cloudType);
+  cloudType *= coverageBase; // aesthetic hack
+  float heightMultiplier = calcHeightMultiplier(height, cloudType);
 
-float cloudCoverageModulationFilterWidth = 0.6;
-
-float calcCloudDensityHull(float coverageBase, float coverageDetail, float heightMultiplier) {
-  float coverage = coverageBase * heightMultiplier;
-  return coverageModulation(coverage, coverageDetail, cloudCoverageModulationFilterWidth);
-}
-
-vec2 calcCloudDensityLowRes(float coverageBase, float coverageDetail, float heightMultiplier) {
-  vec2 coverage = vec2(coverageBase * heightMultiplier);
-
-  // 用高频的纹理腐蚀低频的密度，以减少云的覆盖度
-  // Eroding the low detail density by high detail textures results in reduction of cloud coverage.
-	// We need to subtract this amount from the low detail coverage to match the high detail result.
-  float erosionCompensation = 0.14;
-  coverage.x = max(0.0, coverage.x - erosionCompensation);
-
-  return coverageModulation(coverage, vec2(coverageDetail), vec2(cloudCoverageModulationFilterWidth));
+  return calcCloudDensityHull(coverageBase, coverageDetail, heightMultiplier);
 }
 
 vec2 sampleDensityLowRes(vec2 uv, float height, out float cloudType, float lod) {
   // 采样全球的覆盖率作为云的低频覆盖率
-  float coverageBase =  sampleBaseCloudCoverage(globalAlphaSampler, uv);
-  // 
+  float coverageBase = sampleBaseCloudCoverage(globalAlphaSampler, uv);
+  // 获取高频的覆盖率和云的类型
   float coverageDetail = sampleCoverageDetail(coverageDetailSampler, uv, lod, cloudType);
   cloudType *= coverageBase; // aesthetic hack
   float heightMultiplier = calcHeightMultiplier(height, cloudType);
-  // return calcCloudDensityHull(coverageBase, coverageDetail, heightMultiplier);
+  // 
   return calcCloudDensityLowRes(coverageBase, coverageDetail, heightMultiplier);
 }
 
@@ -332,6 +160,8 @@ const float cloudChaos = 0.8;
 
 // !@param lod is 0 for maximum detail. Detail falls off with log2 (as per mipmap lod level)
 float calcDensity(vec3 pos, vec2 uv, float lod, float height, out float cloudType) {
+  // x 分量是应用腐蚀之后，密度平均的低频密度
+  // y 分量是应用腐蚀之前的低频密度
   vec2 densityAtLods = sampleDensityLowRes(uv, height, cloudType, lod);
   float density = densityAtLods.r;
 
@@ -433,8 +263,11 @@ vec4 march(vec3 start, vec3 dir, float stepSize, float tMax, float rayStartTexel
     // 根据云的坐标、uv、LOD、高度，计算云的密度，并输出云的类型
     float density = calcDensity(pos + vec3(cloudDisplacementMeters.xy, 0.0), uv, lod, height, outCloudType);
 
+    // return vec4(outCloudType);
+
     // 如果云的密度大于 0（有效密度）
     if (density > effectiveZeroDensity) {
+      // return vec4(1);
       vec3 radiance = radianceLowRes(pos, uv, lightDir, hg, sunIrradiance, lod, height, outCloudType) * density;
 
 #ifdef ENERGY_CONSERVING_INTEGRATION
@@ -450,7 +283,27 @@ vec4 march(vec3 start, vec3 dir, float stepSize, float tMax, float rayStartTexel
     } else {
       // 否则认为该坐标为空，没有云
       // Skip empty space
-      discard;
+      float bigStepSize = mix(stepSize, maximumStepSize, min(1.0, lod));
+      for (; i < iterations; ++i) {
+        t += bigStepSize;
+        if (t > tMax) {
+          break;
+        }
+
+        vec3 pos = start + dir * t;
+        lod = log2(max(1.0, rayStartTexelsPerPixel + texelsPerPixelAtDistance(t)));
+        bigStepSize = mix(stepSize, maximumStepSize, min(1.0, lod));
+
+        uv = cloudUvFromPosRelPlanet(pos);
+        float height = length(pos) - innerRadius;
+        float outCloudType;
+        float density = sampleDensityHull(uv, height, outCloudType, lod);
+
+        if (density > effectiveZeroDensity) {
+          t -= bigStepSize;
+          break;
+        }
+      }
     }
 
 
@@ -499,12 +352,12 @@ vec4 evaluateGlobalLowResColor(vec2 cloudsUv, vec3 irradiance, float rayFar) {
   return vec4(color, alpha);
 }
 
+uniform int DEBUG;
+
 void main() {
 
   vec2 uv = v_uv;
   vec3 rayDir = normalize(vertCameraWorldDir);
-  // colorOut = vec4(rayDir, 1.0);
-  // return;
 
   float rayNear;
   float rayFar;
@@ -590,14 +443,38 @@ void main() {
   // 把射线-球体的相交点往上抬一点，防止因精度问题导致求得的相交点位于球体内？
 	vec3 positionRelPlanetSafe = positionRelPlanet*1.0003;
 
+  // colorOut = vec4(rayDir, 1.0);
+  // colorOut = vec4(uv, 0, 1.0);
+  // colorOut = texture(irradiance_texture, uv);
+  // colorOut = texture(coverageDetailSampler, uv);
+  // colorOut = texture(noiseVolumeSampler, normalize(positionRelPlanetSafe));
+  // colorOut = texture(scattering_texture, normalize(positionRelPlanetSafe));
+  // return;
 
-  // vec3 skyIrradiance;
-	// vec3 sunIrradiance = GetSunAndSkyIrradiance(positionRelPlanetSafe, lightDirection, skyIrradiance);
-  // // Add sky radiance to sun radiance, to simulate multi scattering
-	// vec3 directIrradiance = (sunIrradiance + skyIrradiance);
-  vec3 directIrradiance = vec3(1.0);
+
+  vec3 skyIrradiance;
+	vec3 sunIrradiance = GetSunAndSkyIrradiance(positionRelPlanetSafe, lightDirection, skyIrradiance);
+  // Add sky radiance to sun radiance, to simulate multi scattering
+	vec3 directIrradiance = (sunIrradiance + skyIrradiance);
 
   vec2 cloudsUv = cloudUvFromPosRelPlanet(positionRelPlanetPlanetAxes);
+
+  colorOut.rgb = sunIrradiance;
+  // colorOut.rgb = vec3(dot(lightDirection, -rayDir));
+  // colorOut = texture(irradiance_texture, cloudsUv);
+  // if (colorOut.b < 0.0) {
+  //   colorOut.g = 1.0;
+  // }
+  // colorOut.b *= 1000.0;
+  // colorOut = texture(scattering_texture, vec3(cloudsUv, 0.5));
+  colorOut.a = 1.0;
+  colorOut.rgb = mix(colorOut.rgb, vec3(cloudsUv, 0.0), float(DEBUG));
+  // return;
+
+  // colorOut = texture(coverageDetailSampler, cloudsUv.xy * 3.0);
+  // colorOut.rgb = vec3(colorOut.g);
+  // colorOut = texture(noiseVolumeSampler, normalize(positionRelPlanetSafe));
+  // return;
 
   // 根据 dFd{x,y} 确定每个像素使用的 3D 纹理层级
   float lod = mipMapLevel(coverageDetailSampler, cloudsUv.xy * vec2(300.0, 150.0));
@@ -633,6 +510,24 @@ void main() {
 
   float logZ;
   if (hasSample) {
+    {
+      // Apply 'aerial perspective'
+      vec3 transmittance;
+      vec3 cloudFrontPositionRelPlanet = cameraPositionRelPlanet + meanCloudFrontDistance * rayDir;
+
+      // Decrease inscattering as a function of sky occlusion due to clouds.
+      // This curve is a fudge, but give plausible looking results.
+      float cloudSkyOcclusion = sampleCloudSkyOcclusionMaskAtCloudsUv(globalAlphaSampler, cloudsUv);
+      float heightFraction = clamp((cameraAltitude - cloudLayerMinHeight) / (cloudLayerMaxHeight - cloudLayerMinHeight), 0.0, 1.0);
+      cloudSkyOcclusion = mix(cloudSkyOcclusion, 1.0, heightFraction);
+      vec3 skyRadianceToPoint = GetSkyRadianceToPointWithCloudOcclusion(cameraPositionRelPlanet, cloudFrontPositionRelPlanet, lightDirection, cloudSkyOcclusion, transmittance);
+
+      // Blend between no aerial perspective for 0 density and full aerial for 1 density.
+      // This curve is a fudge, but give plausible looking results.
+      float weight = min(1.0, colorOut.a * colorOut.a * colorOut.a);
+      colorOut.rgb = mix(colorOut.rgb, colorOut.rgb * transmittance + skyRadianceToPoint , weight);
+    }
+    // logZ = 
   } else {
     float precisionBias = 0.99; // need to avoid z fighting at extrame distances
     // logZ = calcLogZDdc

@@ -2,18 +2,8 @@
 
 precision highp float;
 precision highp int;
-precision highp uint;
 
-// vec2 positions[3] = vec2[3](
-//   vec2(-30.0, -30.),
-//   vec2( 30.0, -30.),
-//   vec2( 0.0,  30.)
-// );
 vec2 positions[6] = vec2[6](
-  // vec2(-1.0, -1.),
-  // vec2( 3.0, -1.),
-  // vec2(-1.0,  3.)
-
   vec2(-1.0,  -1.0),
   vec2( 1.0,  -1.0),
   vec2(-1.0,   1.0),
