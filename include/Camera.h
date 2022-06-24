@@ -38,6 +38,9 @@ public:
 
   glm::dvec3 getPosition() const { return mPosition; }
   glm::dquat getOrientation() const { return mOrientation; }
+  glm::dvec3 getDirection() const;
+  glm::dvec3 getUp() const;
+  glm::dvec3 getRight() const;
 
   glm::dmat4 getViewMatrix() const { return mViewMatrix; }
   glm::dmat4 getProjectionMatrix() const { return mProjectionMatrix; }

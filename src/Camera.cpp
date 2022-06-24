@@ -1,3 +1,5 @@
+#include <glm/gtc/matrix_access.hpp>
+
 #include "Camera.h"
 
 Camera::Camera(double aspectRatio) :
@@ -17,6 +19,21 @@ void Camera::setPosition(const glm::dvec3 &position) {
 void Camera::setOrientation(const glm::dquat &orientation) {
   mOrientation = orientation;
   updateViewMatrix();
+}
+
+glm::dvec3 Camera::getRight() const {
+  auto rotationMatrix = glm::toMat4( getOrientation() );
+  return glm::column( rotationMatrix, 0 );
+}
+
+glm::dvec3 Camera::getUp() const {
+  auto rotationMatrix = glm::toMat4( getOrientation() );
+  return glm::column( rotationMatrix, 1 );
+}
+
+glm::dvec3 Camera::getDirection() const {
+  auto rotationMatrix = glm::toMat4( getOrientation() );
+  return - glm::column( rotationMatrix, 2 );
 }
 
 void Camera::updateViewMatrix() {
