@@ -15,4 +15,4 @@ public:
   void Draw(Camera &camera) override;
 };
 
-#endif __PLANET_H__
+#endif // __PLANET_H__

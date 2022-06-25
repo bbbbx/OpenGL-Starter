@@ -8,6 +8,7 @@
 #include <stdexcept>
 #include <iostream>
 #include <memory>
+#include <vector>
 
 namespace
 {
@@ -41,7 +42,7 @@ VolumeClouds::VolumeClouds(/* args */)
   glGenVertexArrays(1, &vao);
   glGenBuffers( 1, &vbo );
 
-  program = new Program("./shaders/ray_march/clouds.vert", "./shaders/ray_march/clouds.frag");
+  program = new Program("./shaders/volumeclouds/volumeclouds.vert", "./shaders/volumeclouds/volumeclouds.frag");
 
 // textures
   int x = 8192, y = 4096, n = 4;

@@ -32,4 +32,4 @@ public:
   virtual void Draw(Camera &camera) = 0;
 };
 
-#endif __RENDERABLE_H__
+#endif // __RENDERABLE_H__

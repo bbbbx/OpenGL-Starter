@@ -39,4 +39,4 @@ public:
   void Update(Camera &camera, double time, double deltaTime = 0.0);
 };
 
-#endif __VOLUME_CLOUDS_H__
+#endif // __VOLUME_CLOUDS_H__
