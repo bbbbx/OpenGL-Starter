@@ -7,22 +7,21 @@
 
 class Program
 {
-private:
-  GLuint glVertShader = 0;
-  GLuint glFragShader = 0;
-  GLuint glProgram = 0;
-
-  std::unordered_map<std::string, GLint> uniformLocationMap;
-
-  GLint GetUniformLocation(const std::string& name);
-
-  void BindTexture(const std::string& name, GLuint texture, int unit, GLenum target);
-
 public:
+  typedef struct
+  {
+    std::string name;
+    GLenum type;
+    GLint size;
+    GLint location;
+    GLuint index;
+  } Uniform;
+
   Program() = default;
   Program(const std::string& vertShaderSourcePath, const std::string& fragShaderSourcePath);
 
   inline GLuint GetGLProgram() const { return glProgram; };
+  inline std::unordered_map<std::string, Program::Uniform> GetUniforms() const { return uniforms; }
 
   Program* Use();
   Program* BindFloat(const std::string& name, float value);
@@ -48,6 +47,17 @@ public:
   Program* BindTexture3D(const std::string& name, GLuint texture, int unit);
 
   ~Program();
+
+private:
+  GLuint glVertShader = 0;
+  GLuint glFragShader = 0;
+  GLuint glProgram = 0;
+
+  std::unordered_map<std::string, Program::Uniform> uniforms;
+
+  GLint GetUniformLocation(const std::string& name);
+
+  void BindTexture(const std::string& name, GLuint texture, int unit, GLenum target);
 };
 
 #endif
