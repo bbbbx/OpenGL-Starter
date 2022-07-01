@@ -5,6 +5,54 @@
 #include "LoadShaders.h"
 #include "Program.h"
 
+namespace
+{
+
+std::unordered_map<std::string, Program::Uniform> GetActiveUniforms(GLuint glProgram) {
+  GLint uniformCount = 0;
+  glGetProgramiv( glProgram, GL_ACTIVE_UNIFORMS, &uniformCount );
+
+  std::vector<GLuint> indices;
+  indices.resize(uniformCount);
+  for (GLint i = 0; i < uniformCount; i++)
+  {
+    indices[i] = i;
+  }
+
+  std::vector<GLsizei> lengths;
+  lengths.resize( uniformCount );
+  glGetActiveUniformsiv( glProgram, uniformCount, indices.data(), GL_UNIFORM_NAME_LENGTH, lengths.data() );
+
+  std::unordered_map<std::string, Program::Uniform> uniforms;
+  for (GLint i = 0; i < uniformCount; i++) {
+    GLsizei length = lengths[i];
+    GLuint index = indices[i];
+    std::string name;
+    name.resize( length );
+    GLsizei bufSize = (GLsizei)name.size();
+    GLint size = 0;
+    GLenum type = GL_NONE;
+
+    glGetActiveUniform( glProgram, index, bufSize, &length, &size, &type, name.data() );
+
+    GLint location = glGetUniformLocation( glProgram, name.data() );
+
+    Program::Uniform uniform;
+    uniform.name = name;
+    uniform.type = type;
+    uniform.size = size;
+    uniform.location = location;
+    uniform.index = index;
+
+    uniforms[name] = uniform;
+  }
+
+  return uniforms;
+}
+
+} // namespace
+
+
 Program::Program(const std::string& vertShaderSourcePath, const std::string& fragShaderSourcePath) {
   ShaderInfo* vertShaderinfo = readShaderFile( GL_VERTEX_SHADER, vertShaderSourcePath );
   ShaderInfo* fragShaderinfo = readShaderFile( GL_FRAGMENT_SHADER, fragShaderSourcePath );
@@ -15,6 +63,8 @@ Program::Program(const std::string& vertShaderSourcePath, const std::string& fra
   GLuint shaders[] = { glVertShader, glFragShader };
   size_t size = std::size( shaders );
   glProgram = CreateGLProgram( shaders, size );
+
+  uniforms = GetActiveUniforms( glProgram );
 }
 
 Program* Program::Use() {
@@ -25,7 +75,8 @@ Program* Program::Use() {
 GLint Program::GetUniformLocation(const std::string& name) {
   GLint loc = -1;
   try {
-    loc = uniformLocationMap.at( name );
+    auto uniform = uniforms.at( name );
+    loc = uniform.location;
   } catch(const std::out_of_range& e) {
     loc = glGetUniformLocation( glProgram, name.c_str() );
   }
