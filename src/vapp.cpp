@@ -1,5 +1,6 @@
 #include "vapp.h"
 #include <stdexcept>
+#include <iostream>
 
 void VApplication::window_resize_callback(GLFWwindow* window, int width, int height)
 {
@@ -38,16 +39,25 @@ void VApplication::mousebutton_callback(GLFWwindow* window, int button, int acti
   pThis->OnMouseButton( button, action, mods );
 }
 
+/**
+ * @brief Return elapsed time in seconds
+ * 
+ * @return double 
+ */
 double VApplication::app_time()
 {
-  auto now = std::chrono::system_clock::now();
-  auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(now - appStartTime);
-  return (double)duration.count() / 1000.0;
+  return (double)timer.count<std::chrono::milliseconds>() / 1000.0;
+}
+
+void errorCallback(int errorCode, const char* description) {
+  std::cerr << "GLFW error callback: " << description << std::endl;
 }
 
 void VApplication::Initialize( int argc, char** argv, const char* title )
 {
-  appStartTime = std::chrono::system_clock::now();
+  timer.start();
+
+  glfwSetErrorCallback( errorCallback );
 
   if ( glfwInit() == GLFW_FALSE ) {
     throw std::runtime_error( "GLFW init failed!\n" );

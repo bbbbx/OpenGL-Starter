@@ -6,6 +6,7 @@
 #include <glad/glad.h>
 
 #include <chrono>
+#include <cxxtimer.hpp>
 
 
 class VApplication
@@ -18,8 +19,7 @@ protected:
   int window_width;
   int window_height;
 
-  // struct timeval appStartTime;
-  std::chrono::system_clock::time_point appStartTime;
+  cxxtimer::Timer timer;
 
   static void window_resize_callback(GLFWwindow* window, int width, int height);
   static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
