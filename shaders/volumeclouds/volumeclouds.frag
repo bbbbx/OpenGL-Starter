@@ -1,13 +1,12 @@
-#version 410 core
-
-precision highp float;
-precision highp int;
+#version 330 core
 
 #include "../AtmosphericScatteringWithClouds.h"
 #include "../Clouds.h"
+#include "../DepthPrecision.h"
 #include "../GlobalDefines.h"
 #include "../RaySphereIntersection.h"
 #include "../Brdfs/HenyeyGreenstein.h"
+#include "./textureQueryLodPolyfill.h"
 
 
 // Remaps value from 0 to 1 across pixelCount pixels.
@@ -36,6 +35,7 @@ float checker(vec2 uv, float repeats)
 
 
 uniform vec3 cameraPosition;
+uniform vec3 cameraCenterDirection;
 
 // uniform vec3 planetCenter;
 // uniform mat4 planetMatrixInv;
@@ -49,18 +49,26 @@ in vec3 vertCameraWorldDir;
 in float cameraAltitude;
 in vec2 v_uv;
 
-out vec4 colorOut;
+layout(location = 0) out vec4 colorOut;
+layout(location = 1) out float depthOut;
 
 // Cloud geometry heights for each cloud type
-const float cloudLayerMaxHeight = 7000;
-const float cloudLayerMinHeight = 2000;
-const vec2 cloudTopZeroDensityHeight = vec2(2500, 7000);
-const vec2 cloudBottomZeroDensity = vec2(2000, 2000);
+// const float cloudLayerMaxHeight = 7000;
+// const float cloudLayerMinHeight = 2000;
+// const vec2 cloudTopZeroDensityHeight = vec2(2500, 7000);
+// const vec2 cloudBottomZeroDensity = vec2(2000, 2000);
+uniform vec2 cloudTopZeroDensityHeight;
+uniform vec2 cloudBottomZeroDensity;
+float cloudLayerMaxHeight = max(cloudTopZeroDensityHeight[1], cloudBottomZeroDensity[1]);
+float cloudLayerMinHeight = min(cloudTopZeroDensityHeight[0], cloudBottomZeroDensity[0]);
 
-const vec2 cloudOcclusionStrength = vec2(0.25, 0.5);
-const vec2 cloudDensityMultiplier = vec2(0.005, 0.02);
+// const vec2 cloudOcclusionStrength = vec2(0.25, 0.5);
+// const vec2 cloudDensityMultiplier = vec2(0.005, 0.001);
+uniform vec2 cloudOcclusionStrength;
+uniform vec2 cloudDensityMultiplier;
 
-const vec3 noiseFrequencyScale = vec3(0.00015);
+// const vec3 noiseFrequencyScale = vec3(0.00015);
+uniform vec3 noiseFrequencyScale;
 
 const int iterations = 1000;
 const float initialStepSize = 100;
@@ -84,7 +92,6 @@ float mipMapLevel(sampler2D sampler, vec2 uv) {
 }
 
 
-
 float texelsPerPixelAtDistance(float distance)
 {
 	return distance/120000.0;
@@ -104,12 +111,19 @@ const float SAMPLE_SEGMENT_LENGTHS[6] = float[6](1, 1, 2, 4, 8, 16);
 const int lightSampleCount = 6;
 const vec3 albedo = vec3(0.95);
 
-const float powderStrength = 0.1; // TODO: get this looking right
-const float scatterSampleDistanceScale = 25;
-const float scatterDistanceMultiplier = 0.5; // less then 1 to fake multi-scattering
+// const float powderStrength = 0.1; // TODO: get this looking right
+// const float scatterSampleDistanceScale = 25;
+// const float scatterDistanceMultiplier = 0.5; // less then 1 to fake multi-scattering
+uniform float powderStrength;
+uniform float scatterSampleDistanceScale;
+uniform float scatterDistanceMultiplier;
 
 
-// Returns an apprxomate semicircle over x in range [0, 1]
+uniform int DEBUG_VOLUME;
+uniform int ENABLE_HIGH_DETAIL_CLOUDS;
+
+
+// 在 [0, 1] 范围内的 x 上返回一个近似半圆
 float semicircle(float x) {
   float a = clamp(x * 2.0 - 1.0, -1.0, 1.0);
   return 1 - a*a;
@@ -121,23 +135,19 @@ float biasedSemiCircle(float x, float bias) {
   return 1.0 + (x > bias ? a : b);
 }
 
-// 根据云的类型计算该云在该高度下的密度倍数，[0, 1]
+// 根据云的类型插值得到该类型云层的范围，
+// 然后计算该云在指定高度下的密度倍数，范围为 [0, 1]
 float calcHeightMultiplier(float height, float cloudType) {
-  // 总共两种云的类型
-  // cloudBottomZeroDensity 保存两种云类型在底部密度为 0 时的高度
-  // cloudTopZeroDensityHeight 保存两种云类型在顶部密度为 0 时的高度
   float bottom = mix(cloudBottomZeroDensity.x, cloudBottomZeroDensity.y, cloudType);
   float top = mix(cloudTopZeroDensityHeight.x, cloudTopZeroDensityHeight.y, cloudType);
   float h = remapNormalized(height, bottom, top);
-  // return semicircle(h);
-  return biasedSemiCircle(h, 0.2);
+  return semicircle(h);
+  // return biasedSemiCircle(h, 0.2);
 }
 
 
 float sampleDensityHull(vec2 uv, float height, out float cloudType, float lod) {
-  // 采样全球的覆盖率作为云的低频覆盖率
   float coverageBase = sampleBaseCloudCoverage(globalAlphaSampler, uv);
-  // 获取高频的覆盖率和云的类型
   float coverageDetail = sampleCoverageDetail(coverageDetailSampler, uv, lod, cloudType);
   cloudType *= coverageBase; // aesthetic hack
   float heightMultiplier = calcHeightMultiplier(height, cloudType);
@@ -146,9 +156,7 @@ float sampleDensityHull(vec2 uv, float height, out float cloudType, float lod) {
 }
 
 vec2 sampleDensityLowRes(vec2 uv, float height, out float cloudType, float lod) {
-  // 采样全球的覆盖率作为云的低频覆盖率
   float coverageBase = sampleBaseCloudCoverage(globalAlphaSampler, uv);
-  // 获取高频的覆盖率和云的类型
   float coverageDetail = sampleCoverageDetail(coverageDetailSampler, uv, lod, cloudType);
   cloudType *= coverageBase; // aesthetic hack
   float heightMultiplier = calcHeightMultiplier(height, cloudType);
@@ -156,7 +164,8 @@ vec2 sampleDensityLowRes(vec2 uv, float height, out float cloudType, float lod) 
   return calcCloudDensityLowRes(coverageBase, coverageDetail, heightMultiplier);
 }
 
-const float cloudChaos = 0.8;
+// const float cloudChaos = 0.8;
+uniform float cloudChaos;
 
 // !@param lod is 0 for maximum detail. Detail falls off with log2 (as per mipmap lod level)
 float calcDensity(vec3 pos, vec2 uv, float lod, float height, out float cloudType) {
@@ -173,14 +182,17 @@ float calcDensity(vec3 pos, vec2 uv, float lod, float height, out float cloudTyp
     float highDensity = clamp(remapNormalized(densityAtLods.g, filteredNoise, 1.0), 0.0, 1.0);
     density = mix(density, highDensity, 1.0 - detailBlend);
 
-#ifdef ENABLE_HIGH_DETAIL_CLOUDS
-    float highDetailBlend = lod * 10.0;
-    if (highDetailBlend < 1.0) {
-      noise = 0.9 * textureLod(noiseVolumeSampler, pos * noiseFrequencyScale * 3.0, 0).r;
-      float highResDensity = clamp(remapNormalized(density, noise, 1.0), 0.0, 1.0);
-      density = mix(density, highDensity, 1.0 - highDetailBlend);
+// #define ENABLE_HIGH_DETAIL_CLOUDS
+// #ifdef ENABLE_HIGH_DETAIL_CLOUDS
+    if ( bool(ENABLE_HIGH_DETAIL_CLOUDS) ) {
+      float highDetailBlend = lod * 10.0;
+      if (highDetailBlend < 1.0) {
+        noise = 0.9 * textureLod(noiseVolumeSampler, pos * noiseFrequencyScale * 3.0, 0).r;
+        float highResDensity = clamp(remapNormalized(density, noise, 1.0), 0.0, 1.0);
+        density = mix(density, highDensity, 1.0 - highDetailBlend);
+      }
     }
-#endif
+// #endif
   }
 
   return density * mix(cloudDensityMultiplier.x, cloudDensityMultiplier.y, cloudType);
@@ -239,7 +251,7 @@ vec4 march(vec3 start, vec3 dir, float stepSize, float tMax, float rayStartTexel
   float hg = watooHenyeyGreenstein(cosAngle);
 
   // The color that is accumulated during raymarching
-  vec3 totalIrradiance = vec3(0.0);
+  vec3 totalRadiance = vec3(0.0);
   float T = 1.0;
 
   // As we march, also calculate the transmittance-weigthed mean cloud scene depth.
@@ -260,21 +272,30 @@ vec4 march(vec3 start, vec3 dir, float stepSize, float tMax, float rayStartTexel
     float height = length(pos) - innerRadius;
     float outCloudType;
 
-    // 根据云的坐标、uv、LOD、高度，计算云的密度，并输出云的类型
+    // 根据(云的坐标, uv, LOD, 高度)，计算(云的密度, 云的类型)
+    // outCloudType 是 Noise.png 的 b 通道
     float density = calcDensity(pos + vec3(cloudDisplacementMeters.xy, 0.0), uv, lod, height, outCloudType);
 
-    // return vec4(outCloudType);
+    // return vec4(density);
 
     // 如果云的密度大于 0（有效密度）
     if (density > effectiveZeroDensity) {
       // return vec4(1);
       vec3 radiance = radianceLowRes(pos, uv, lightDir, hg, sunIrradiance, lod, height, outCloudType) * density;
 
+#define ENERGY_CONSERVING_INTEGRATION
 #ifdef ENERGY_CONSERVING_INTEGRATION
+      float clampedDensity = max(density, 0.0000001);
 
-    // totalIrradiance += T * integScatt;
+      // Energy conserving intergation from https://media.contentapi.ea.com/content/dam/eacom/frostbite/files/s2016-pbs-frostbite-sky-clouds-new.pdf
+      float transmittance = exp(-density * stepSize);
+
+      vec3 integScatt = (radiance - radiance * transmittance) / clampedDensity;
+
+      totalRadiance += T * integScatt;
+      T *= transmittance;
 #else
-      totalIrradiance += radiance * stepSize * T;
+      totalRadiance += radiance * stepSize * T;
       T *= exp(-density * stepSize);
 #endif
 
@@ -324,7 +345,7 @@ vec4 march(vec3 start, vec3 dir, float stepSize, float tMax, float rayStartTexel
 
   meanCloudFrontDistance = (sumTransmissionWeights > 0) ? (sumTransmissionWeightedDistance / sumTransmissionWeights) : -1.0;
 
-  return vec4(totalIrradiance, 1.0 - max(0.0, remapNormalized(T, effectiveZeroT, 1.0)));
+  return vec4(totalRadiance, 1.0 - max(0.0, remapNormalized(T, effectiveZeroT, 1.0)));
 }
 
 // Simulates colour change duet to scattering
@@ -335,9 +356,9 @@ vec3 desaturate(vec3 c) {
 const float lowResBrightnessMultiplier = 1.0; // fudge factor to make low res clouds match brightness of high res clouds, nneded because low res does not simulate any scattering
 
 vec4 evaluateGlobalLowResColor(vec2 cloudsUv, vec3 irradiance, float rayFar) {
-  // textureQueryLod：4.0 才有的函数，
-  // y 分量是计算出来的相对于 base level 的 level，
-  // x 分量是实际将要访问 level。
+  // TODO: textureQueryLod：4.0 才有的函数，
+  //         x 分量是实际将要访问 level。
+  //         y 分量是计算出来的相对于 base level 的 level，
   // Calculate texture LOD level.
 	// There is a singularity when the U coordinate wraps from 1 to 0, which we avoid by querying LOD
 	// at U and fract(U) and taking the minimum. We also tried Tarini's method (https://www.shadertoy.com/view/7sSGWG) which alleviated the seam but did not completely remove it.
@@ -352,7 +373,6 @@ vec4 evaluateGlobalLowResColor(vec2 cloudsUv, vec3 irradiance, float rayFar) {
   return vec4(color, alpha);
 }
 
-uniform int DEBUG;
 
 void main() {
 
@@ -362,13 +382,7 @@ void main() {
   float rayNear;
   float rayFar;
 
-  bool hitPlanet = (raySphereFirstIntersection(cameraPosition, rayDir, vec3(0.0), 6600000) >= 0.0);
-  // if (hitPlanet) {
-  //   colorOut = vec4(normalize(cameraPosition), 1.0);
-  // } else {
-  //   colorOut = vec4(vec3(0.0), 1.0);
-  // }
-  // return;
+  bool hitPlanet = (raySphereFirstIntersection(cameraPosition, rayDir, planetCenter, innerRadius) >= 0.0);
 
   float alpha = 1.0;
 
@@ -376,7 +390,7 @@ void main() {
   if (cameraAltitude < cloudLayerMinHeight) {
     if (hitPlanet) {
       colorOut = vec4(0.0);
-      // depthOut = 1.0;
+      depthOut = 1.0;
       return;
     }
 
@@ -389,10 +403,16 @@ void main() {
       // Far is the intersection with the cloud base
       // 相机看向地面时，远处交点位于云层底部上
       rayFar = raySphereFirstIntersection(cameraPosition, rayDir, planetCenter, innerRadius + cloudLayerMinHeight);
+      // colorOut = vec4(1, 0, 1, 1.0);
+      // depthOut = 1.0;
+      // return;
     } else {
       // Far is the intersection with the cloud top
       // 相机看向天空时，远处交点位于云层顶部上
 			rayFar = raySphereSecondIntersection(cameraPosition, rayDir, planetCenter, innerRadius + cloudLayerMaxHeight);
+      // colorOut = vec4(1, 0, 1, 1);
+      // depthOut = 0.0;
+      // return;
     }
   } else { // 相机海拔高于云层顶部时
     float t0;
@@ -419,13 +439,15 @@ void main() {
   // 射向没有和云层相交
   if (rayNear < 0.0) {
     colorOut = vec4(0.0);
-    // depthOut = 1.0;
+    depthOut = 1.0;
     return;
   }
 
   float stepSize = initialStepSize;
 	stepSize = min(stepSize + rayNear / 4000.0, maximumStepSize);
 
+  // stepSize \in [100, 500]
+  // `random` returns [0, 1]
   rayNear += stepSize * random(gl_FragCoord.xy);
 
   vec3 positionRelCameraWS = rayNear * rayDir;
@@ -459,7 +481,7 @@ void main() {
 
   vec2 cloudsUv = cloudUvFromPosRelPlanet(positionRelPlanetPlanetAxes);
 
-  colorOut.rgb = sunIrradiance;
+  // colorOut.rgb = sunIrradiance;
   // colorOut.rgb = vec3(dot(lightDirection, -rayDir));
   // colorOut = texture(irradiance_texture, cloudsUv);
   // if (colorOut.b < 0.0) {
@@ -467,8 +489,8 @@ void main() {
   // }
   // colorOut.b *= 1000.0;
   // colorOut = texture(scattering_texture, vec3(cloudsUv, 0.5));
-  colorOut.a = 1.0;
-  colorOut.rgb = mix(colorOut.rgb, vec3(cloudsUv, 0.0), float(DEBUG));
+  // colorOut.a = 1.0;
+  // colorOut.rgb = mix(colorOut.rgb, vec3(cloudsUv, 0.0), float(DEBUG));
   // return;
 
   // colorOut = texture(coverageDetailSampler, cloudsUv.xy * 3.0);
@@ -480,16 +502,24 @@ void main() {
   float lod = mipMapLevel(coverageDetailSampler, cloudsUv.xy * vec2(300.0, 150.0));
   lod = mix(0.0, lod, min(1.0, 0.2 * cameraAltitude / cloudLayerMaxHeight));
 
+  if ( bool(DEBUG_VOLUME) ) {
+    colorOut.rgb = vec3(checker(cloudsUv * vec2(2.0, 1.0), 100.0));
+    colorOut.a = 1.0;
+    depthOut = calcLogZNdc(dot(rayDir * rayNear, cameraCenterDirection));
+    return;
+  }
+
   float lowResBlend = (lod - 2.0) * 0.25;
+
+  // float cosAngle = dot(lightDirPlanetAxes, rayDirPlanetAxes);
+  // float hg = watooHenyeyGreenstein(cosAngle);
 
   float meanCloudFrontDistance;  // negative value means no samples
   if (lowResBlend < 1.0) {
     // colorOut = vec4(0, 1, 0, 1);return;
     // 该 lod 下纹素的 size
     float rayStartTexelsPerPixel = pow(2.0, lod);
-    // float cosAngle = dot(lightDirPlanetAxes, rayDirPlanetAxes);
-    // float hg = watooHenyeyGreenstein(cosAngle);
-    // colorOut = vec4(vec3(hg), 1);return;
+    // colorOut = vec4(vec3(hg), 1);depthOut= 0.0;return;
     colorOut = march(
       positionRelPlanetPlanetAxes,
       rayDirPlanetAxes,
@@ -502,7 +532,6 @@ void main() {
     );
     meanCloudFrontDistance += rayNear;
   } else {
-    // colorOut = vec4(1.0, 0, 0, 1);return;
     meanCloudFrontDistance = -1.0;
   }
 
@@ -510,6 +539,9 @@ void main() {
 
   float logZ;
   if (hasSample) {
+    // colorOut = vec4(1, 0, 1, 1);
+    // depthOut = 1.0;
+    // return;
     {
       // Apply 'aerial perspective'
       vec3 transmittance;
@@ -527,10 +559,15 @@ void main() {
       float weight = min(1.0, colorOut.a * colorOut.a * colorOut.a);
       colorOut.rgb = mix(colorOut.rgb, colorOut.rgb * transmittance + skyRadianceToPoint , weight);
     }
-    // logZ = 
+    logZ = calcLogZNdc(dot(rayDir * meanCloudFrontDistance, cameraCenterDirection));
+    // logZ = 0.5;
   } else {
+    // LoD 级别过高则不采样，即距离较远的地方
+    // colorOut = vec4(1, 0, 1, 1);
+    // depthOut = 1.0;
+    // return;
     float precisionBias = 0.99; // need to avoid z fighting at extrame distances
-    // logZ = calcLogZDdc
+    logZ = calcLogZNdc(precisionBias * dot(rayDir * rayFar, cameraCenterDirection));
   }
 
   if (lowResBlend > 0.0) {
@@ -540,7 +577,9 @@ void main() {
 
   colorOut *= alpha;
   colorOut.rgba = sqrt(colorOut.rgba);
-  // depthOut = logZ;
+
+  depthOut = logZ;
+  // depthOut = 0.9;
 
 	// colorOut.rgb = vec3(checker(cloudsUv*vec2(2,1), 100.0));
 	// colorOut.rgb = normalize(positionRelPlanetPlanetAxes);

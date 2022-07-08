@@ -12,14 +12,6 @@ namespace
   static constexpr double PI_OVER_TWO = 1.5707963267948966;
   static constexpr double TWO_PI = 6.283185307179586;
 
-  glm::dvec3 phiThetaToXYZ(double phi, double theta, double radius) {
-    double x0 = std::sin( phi ) * std::cos( theta ) * radius;
-    double y0 = std::sin( phi ) * std::sin( theta ) * radius;
-    double z0 = std::cos( phi ) * radius;
-
-    return glm::dvec3( x0, y0, z0 );
-  }
-
   struct Vertex
   {
     glm::dvec3 position;
@@ -47,10 +39,10 @@ std::vector<Vertex> createEllipsoidGeometry(glm::dvec3 radii, glm::dvec3 innerRa
       double nextPhi = std::min(phi + stackStep, PI);
       double nextTheta = std::min(theta + sliceStep, TWO_PI);
 
-      Vertex vertex0 = { phiThetaToXYZ( phi, theta, radii.x ) };
-      Vertex vertex1 = { phiThetaToXYZ( phi, nextTheta, radii.x ) };
-      Vertex vertex2 = { phiThetaToXYZ( nextPhi, nextTheta, radii.x ) };
-      Vertex vertex3 = { phiThetaToXYZ( nextPhi, theta, radii.x ) };
+      Vertex vertex0 = { Ellipsoid::phiThetaToXYZ( phi, theta, radii.x ) };
+      Vertex vertex1 = { Ellipsoid::phiThetaToXYZ( phi, nextTheta, radii.x ) };
+      Vertex vertex2 = { Ellipsoid::phiThetaToXYZ( nextPhi, nextTheta, radii.x ) };
+      Vertex vertex3 = { Ellipsoid::phiThetaToXYZ( nextPhi, theta, radii.x ) };
 
       vertices.push_back( vertex0 );
       vertices.push_back( vertex1 );
@@ -163,6 +155,25 @@ std::vector<Vertex> createEllipsoidGeometry(glm::dvec3 radii, glm::dvec3 innerRa
 
 } // namespace anonymous
 
+glm::dvec3 Ellipsoid::phiThetaToXYZ(double phi, double theta, double radius) {
+  double x0 = std::sin( phi ) * std::cos( theta ) * radius;
+  double y0 = std::sin( phi ) * std::sin( theta ) * radius;
+  double z0 = std::cos( phi ) * radius;
+
+  return glm::dvec3( x0, y0, z0 );
+}
+
+glm::dvec3 Ellipsoid::xyzToPhiTheta(const glm::dvec3& position) {
+  double radius = glm::length( position );
+  double x = position.x / radius;
+  double y = position.y / radius;
+  double z = position.z / radius;
+
+  double phi = std::acos( z );
+  double theta = std::atan2( y, x );
+
+  return glm::dvec3( theta, phi, radius );
+}
 
 std::vector<float> Ellipsoid::CreateGeometry(glm::dvec3 radii, glm::dvec3 innerRadii, unsigned int stackPartitions, unsigned int slicePartitions) {
   std::vector<Vertex> vertices = createEllipsoidGeometry( radii, innerRadii, stackPartitions, slicePartitions );

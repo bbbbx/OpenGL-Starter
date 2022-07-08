@@ -26,6 +26,10 @@ public:
   FirstPersonCameraController(Camera* camera);
   ~FirstPersonCameraController();
 
+  bool inputEnabled = true;
+  // inline void Disable() { inputEnabled = false; };
+  // inline void Enable() { inputEnabled = true; };
+
   void Update(double deltaTime) override;
 
   void HandleKeyDown(int key, int modifier) override;

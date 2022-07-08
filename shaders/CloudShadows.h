@@ -26,7 +26,7 @@ float calcDensityLowRes2(sampler2D cloudSampler, vec2 uv)
 }
 
 float sampleCloudShadowMask(sampler2D cloudSampler, vec2 cloudTexCoord, vec3 lightDirection)
-{
+{                                                                 /* 5000 */
 	vec2 cloudProjectionWorldDistance = vec2(lightDirection.xy) * cloudAltitude / max(0.05, -lightDirection.z);
 	vec2 uv = offsetCloudUvByWorldDistance(cloudTexCoord, cloudProjectionWorldDistance);
 	float mask = 1.0 - calcDensityLowRes2(cloudSampler, uv);

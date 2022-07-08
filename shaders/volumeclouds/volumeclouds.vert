@@ -1,20 +1,9 @@
 #version 410 core
 
-precision highp float;
-precision highp int;
-
-vec2 positions[6] = vec2[6](
-  vec2(-1.0,  -1.0),
-  vec2( 1.0,  -1.0),
-  vec2(-1.0,   1.0),
-  vec2( 1.0,  -1.0),
-  vec2(-1.0,   1.0),
-  vec2( 1.0,   1.0)
-);
-
-uniform vec3 planetCenter;
-uniform mat4 planetMatrixInv;
-uniform float innerRadius;
+// uniform vec3 planetCenter;
+// uniform mat4 planetMatrixInv;
+// uniform float innerRadius;
+#include "../GlobalUniforms.h"
 
 uniform vec3 cameraPosition;
 uniform vec3 topLeftDir;
@@ -22,19 +11,18 @@ uniform vec3 topRightDir;
 uniform vec3 bottomLeftDir;
 uniform vec3 bottomRightDir;
 
-// uniform mat4 viewProj;
+
+in vec4 in_position;
+in vec2 in_texCoord;
 
 out vec3 vertCameraWorldDir;
 out float cameraAltitude;
-
 out vec2 v_uv;
 
 void main() {
-  vec4 pos = vec4(positions[gl_VertexID], 0.0, 1.0);
-  // gl_Position = viewProj * pos;
-  gl_Position = pos;
+  gl_Position = in_position * vec4(2.0) - vec4(1.0);
 
-  v_uv = pos.xy * 0.5 + vec2(0.5);
+  v_uv = in_texCoord;
 
   vec3 topDir = mix(topLeftDir, topRightDir, v_uv.x);
   vec3 bottomDir = mix(bottomLeftDir, bottomRightDir, v_uv.x);

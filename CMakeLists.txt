@@ -1,11 +1,17 @@
 cmake_minimum_required( VERSION 3.0 )
 
+add_compile_definitions( NDEBUG )
+
 if( NOT CMAKE_BUILD_TYPE )
   set( CMAKE_BUILD_TYPE Release )
 endif()
 
 if("${CMAKE_GENERATOR}" MATCHES "(Visual Studio)" )
-  set( CMAKE_CXX_FLAGS "/W4" )
+  # 1. Displays level 1, level 2, and level 3 warnings, and all level 4 (informational) warnings
+  # 2. Specifies the exception handling model.
+  #   s: Enables standard C++ stack unwinding. Catches only standard C++ exceptions when you use catch(...) syntax.
+  #   c: assumes that functions declared as extern "C" never throw a C++ exception.
+  set( CMAKE_CXX_FLAGS "/W4 /EHsc" )
 else()
   set( CMAKE_CXX_FLAGS "-Wall -Wextra" )
   set( CMAKE_CXX_FLAGS_DEBUG "-g" )
@@ -27,6 +33,9 @@ set( INCLUDE_DIRS
   ${CMAKE_CURRENT_SOURCE_DIR}/include
   ${CMAKE_CURRENT_SOURCE_DIR}/extern/glad/include
   ${CMAKE_CURRENT_SOURCE_DIR}/extern/stb
+  ${CMAKE_CURRENT_SOURCE_DIR}/extern/cxxtimer
+  ${CMAKE_SOURCE_DIR}/extern/imgui
+  ${CMAKE_SOURCE_DIR}/extern/imgui/backends
 )
 
 include_directories( ${INCLUDE_DIRS} )
@@ -41,8 +50,23 @@ list( APPEND COMMON_SOURCES
   ${CMAKE_CURRENT_SOURCE_DIR}/extern/glad/src/glad.c
 )
 
+add_library( imgui STATIC )
+target_include_directories( imgui PUBLIC ${CMAKE_SOURCE_DIR}/extern/imgui )
+target_sources( imgui PRIVATE
+  ${CMAKE_SOURCE_DIR}/extern/imgui/imgui.h
+  ${CMAKE_SOURCE_DIR}/extern/imgui/imgui.cpp
+  ${CMAKE_SOURCE_DIR}/extern/imgui/imgui_demo.cpp
+  ${CMAKE_SOURCE_DIR}/extern/imgui/imgui_draw.cpp
+  ${CMAKE_SOURCE_DIR}/extern/imgui/imgui_tables.cpp
+  ${CMAKE_SOURCE_DIR}/extern/imgui/imgui_widgets.cpp
+  ${CMAKE_SOURCE_DIR}/extern/imgui/backends/imgui_impl_glfw.cpp
+  ${CMAKE_SOURCE_DIR}/extern/imgui/backends/imgui_impl_opengl3.cpp
+)
+target_link_libraries( imgui glfw )
+
 set( COMMON_LIBS
   glfw
+  imgui
 )
 
 foreach( EXAMPLE ${EXAMPLES} )

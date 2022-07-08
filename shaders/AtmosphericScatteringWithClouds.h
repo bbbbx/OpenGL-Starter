@@ -7,7 +7,6 @@
 #ifndef ATMOSPHERIC_SCATTERING_WITH_CLOUDS_H
 #define ATMOSPHERIC_SCATTERING_WITH_CLOUDS_H
 
-// #pragma import_defines ( ENABLE_CLOUDS )
 #define ENABLE_CLOUDS
 
 #include "AtmosphericScattering.h"

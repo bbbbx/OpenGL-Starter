@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        #c {
+            background: green;
+            width: 512px;
+            height: 128px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="c" width="64" height="16"></canvas>
+    <script>
+        fetch('./irradiance.dat').then(res => res.arrayBuffer()).then(ab => {
+            const f32List = new Float32Array(ab);
+            const uint8List = new Uint8Array(f32List.map((f32, i) => {
+                return (i+1) % 4 === 0 ? 255 : f32*255
+            }));
+
+            const width = 64;
+            const height = 16;
+            const ctx = document.getElementById('c').getContext('2d');
+            const imageData = new ImageData(new Uint8ClampedArray(uint8List), width, height);
+            ctx.putImageData(imageData, 0, 0);
+            console.log(ctx)
+            console.log(f32List);
+
+        })
+    </script>
+</body>
+</html>
