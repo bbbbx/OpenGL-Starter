@@ -23,17 +23,17 @@ void Camera::setOrientation(const glm::dquat &orientation) {
 
 glm::dvec3 Camera::getRight() const {
   auto rotationMatrix = glm::toMat4( getOrientation() );
-  return glm::column( rotationMatrix, 0 );
+  return glm::dvec3( glm::column( rotationMatrix, 0 ) );
 }
 
 glm::dvec3 Camera::getUp() const {
   auto rotationMatrix = glm::toMat4( getOrientation() );
-  return glm::column( rotationMatrix, 1 );
+  return glm::dvec3( glm::column( rotationMatrix, 1 ) );
 }
 
 glm::dvec3 Camera::getDirection() const {
   auto rotationMatrix = glm::toMat4( getOrientation() );
-  return - glm::column( rotationMatrix, 2 );
+  return glm::dvec3( - glm::column( rotationMatrix, 2 ) );
 }
 
 void Camera::updateViewMatrix() {
@@ -48,6 +48,11 @@ void Camera::updateViewMatrix() {
 
 void Camera::updateProjectionMatrix() {
   mProjectionMatrix = glm::perspective(mFovY, mAspectRatio, mNear, mFar);
+}
+
+void Camera::setAspectRatio(double aspectRatio) {
+  mAspectRatio = aspectRatio;
+  updateProjectionMatrix();
 }
 
 Camera::~Camera()

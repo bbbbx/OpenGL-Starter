@@ -45,7 +45,7 @@ float sampleCoverageDetail(sampler2D coverageDetailSampler, vec2 uv, float lod, 
   // 红色通道保存高频的覆盖率
   float coverageDetail = c.r;
   // FIXME: 蓝色通道保存云的类型的平方根
-  cloudType = c.b*c.b;
+  cloudType = c.b;
   return coverageDetail;
 }
 
@@ -96,9 +96,10 @@ vec2 calcCloudDensityLowRes(float coverageBase, float coverageDetail, float heig
 {
   vec2 coverage = vec2(coverageBase * heightMultiplier);
 
-  // 用高频的纹理腐蚀低频的密度，以减少云的覆盖度
   // Eroding the low detail density by high detail textures results in reduction of cloud coverage.
   // We need to subtract this amount from the low detail coverage to match the high detail result.
+  // 通过高细节纹理侵蚀低细节密度会导致云覆盖减少。
+  // 我们需要从低细节覆盖中减去这个数量以匹配高细节结果
   float erosionCompensation = 0.14;
   coverage.x = max(0.0, coverage.x-erosionCompensation);
 

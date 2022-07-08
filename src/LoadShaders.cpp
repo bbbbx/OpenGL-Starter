@@ -51,7 +51,7 @@ std::string loadFileToString(const std::string& filepath) {
     stream.close();
   } else {
     std::cerr << "Could not open file: " + filepath << std::endl;
-    throw std::runtime_error("");
+    // throw std::runtime_error("");
   }
 
   return outString;
@@ -170,6 +170,7 @@ GLuint CreateGLProgram(GLuint* shaders, size_t size) {
 
     GLchar* log = new GLchar[len+1];
     glGetProgramInfoLog( program, len, &len, log );
+    std::cerr << "Program linking failed: " << std::string( log ) << std::endl;
     throw std::runtime_error( "Program linking failed: " + std::string( log ) );
     return 0;
   }

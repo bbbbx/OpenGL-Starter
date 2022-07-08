@@ -7,9 +7,7 @@
 #ifndef HENYEY_GREENSTEIN_H
 #define HENYEY_GREENSTEIN_H
 
-// FIXME: 1/(4pi) 是 0.7853981633974483
-float oneOnFourPi = 0.0795774715459;
-// float oneOnFourPi = 0.7853981633974483;
+float oneOnFourPi = 0.07957747154594767;
 
 vec4 henyeyGreenstein(float cosAngle, vec4 eccentricity) {
   vec4 eccentricity2 = eccentricity * eccentricity;
@@ -21,8 +19,11 @@ float henyeyGreenstein(float cosAngle, float occentricity) {
 }
 
 float watooHenyeyGreenstein(float cosAngle) {
+  // Tuned to match The "Watoo" phase function for clouds, from Bouthors et al.
+	// See http://wiki.nuaj.net/index.php?title=Clouds
   return dot(
-    henyeyGreenstein(cosAngle, vec4(-0.5, 0.3, 0.96, 0.0)),
+    // TODO: 相位函数决定太阳的 size？
+    henyeyGreenstein(cosAngle, vec4(-0.5, 0.3, 0.99, 0.0)),
     vec4(0.5, 0.5, 0.03, 0.0)
   );
 }

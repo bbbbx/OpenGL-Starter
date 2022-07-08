@@ -8,7 +8,7 @@
 // instead of the vertex shader. This is slower, but avoids z fighting artifacts on
 // on sparsely tesselated geometry.
 // #pragma import_defines(ACCURATE_LOG_Z)
-#define ACCURATE_LOG_Z
+#define ACCURATE_LOG_Z 1
 
 uniform float farClipDistance;
 float C = 0.5; // Adjust to avoid non-linear poly intersection artifacts near the camera

@@ -53,7 +53,7 @@ void Axes::Draw(Camera &camera)
 {
   glm::dmat4 viewProj = camera.getProjectionMatrix() * camera.getViewMatrix();
 
-  glDisable( GL_DEPTH_TEST );
+  glEnable( GL_DEPTH_TEST );
 
   program
     ->Use()

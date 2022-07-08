@@ -1,5 +1,4 @@
 #version 410 core
-precision highp float;
 
 #include "../DepthPrecision.h"
 

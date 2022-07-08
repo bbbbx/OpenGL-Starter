@@ -15,6 +15,8 @@ private:
 
 public:
   static std::vector<float> CreateGeometry(glm::dvec3 radii, glm::dvec3 innerRadii = glm::dvec3( 1.0 ), unsigned int stackPartitions = 64, unsigned int slicePartitions = 128);
+  static glm::dvec3 phiThetaToXYZ(double phi, double theta, double radius);
+  static glm::dvec3 xyzToPhiTheta(const glm::dvec3& position);
 
   Ellipsoid() : Ellipsoid(glm::dvec3(1.0), glm::dvec3(1.0), 64, 128) {};
   Ellipsoid(glm::dvec3 radii) : Ellipsoid(radii, glm::dvec3(1.0), 64, 128) {};
